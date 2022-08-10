@@ -5,6 +5,7 @@ import os
 import sys
 import math
 from collections import defaultdict
+import pandas as pd
 logs = sys.stderr
 
 preamble = r'''
@@ -25,7 +26,7 @@ preamble = r'''
 picturepre = r'''
 %\hspace{-3cm}
 %\resizebox{1.2\textwidth}{!}{
-\begin{tikzpicture}[darkstyle/.style={}, scale=2] %circle,draw,fill=gray!10}]
+\begin{tikzpicture}
 '''
 
 # dataset = "."
@@ -46,6 +47,8 @@ rbs = [
     '}',
     '>'
 ]
+
+nuc2color = {'A': 'black', 'C': 'brown', 'G': 'green', 'U': 'purple'}
 
 counter_clockwise = False # hzhang
 rotate = 180 -5
@@ -119,6 +122,13 @@ def drawarc_counterclockwise(a, b, deg, style, length, lengthfix):
                                                                               2*deg,
                                                                               b), file=output)
 
+        
+def draw_eclipse(left, right, style):
+    radius = (right - left)/2
+    print(f"\\draw{style} ({right}, 0) arc (0:180:{radius} and {radius/2});", file=output)
+    
+    
+    
 def agree(pres, pref, a, b): ## pres[a] = b
     if pref[a] == b:
         return True
@@ -191,72 +201,13 @@ def draw_bpp(seq, ss, tex_file, bpp_file):
 
 
     lengthfix = int(length/9.0)
-    for i, base in enumerate(bases[1:], 1):
-        if circular:
-            angle = 360./(length+lengthfix)*i
-            if counter_clockwise: # hzhang
-                angle = 450-angle -20
-            else:
-                angle = angle-70 + rotate 
-
-            print("\\node [darkstyle]  (%d) at (%f:10cm) {};" % (i, angle), file=output)
-            if length <= 100:
-                gap = 5
-            elif length <= 200:
-                gap = 10
-            elif length <= 300:
-                gap = 20
-            elif length <= 700:
-                gap = 50
-            elif length <= 2000:
-                gap = 100
-            elif length <= 3000:
-                gap = 200
-            elif length <= 5000:
-                gap = 300
-            else:
-                gap = 400
-
-            if i % gap == 0 and i < len(bases)-10:
-                print("\\node [scale=2]           (%d,1) at (%f:10.8cm) {\Huge %d};" % (i, angle, i), file=output)
-            if i > 1:
-                print("\\draw (%d.center) -- (%d.center);" % (i, i-1), file=output)
-
-        else:
-            print("\\node [darkstyle]  (%d) at (%d,0) {};" % (i, i), file=output)
-            if i % 5 == 0:
-                print("\\node []           (%d,1) at (%d,-1) {%d};" % (i, i, i), file=output)
-
-    if circular:
-
-        for j in range(4):
-            i += 1
-            angle = 360./(length+lengthfix)*(i-4)
-
-            if counter_clockwise: # hzhang
-                angle = 450-angle -20
-            else:
-                angle = angle-70 + rotate 
-
-            print("\\node [darkstyle]  (%d) at (%f:10cm) {};" % (i, angle), file=output)
-
-        angle = 360./(length+lengthfix)
-        angle = 450-angle
-        if length <= 50:
-            angle5 = angle - 30
-            angle3 = angle + 30
-        elif length <= 100:
-            angle5 = angle - 20
-            angle3 = angle + 20
-        elif length <= 200:
-            angle5 = angle - 17
-            angle3 = angle + 17
-        else:
-            angle5 = angle - 13
-            angle3 = angle + 13
-        print("\\node [scale=2](3prime) at (%f:10cm) {\LARGE \\textbf{%s}};" % (angle3, "5'"), file=output)
-        print("\\node [right=9.5cm of 3prime, scale=2] {\LARGE \\textbf{%s}};" % "3'", file=output)
-
+    gap = 5
+    for i, nuc in enumerate(seq):
+        xloc = i
+        print(f"\\filldraw [gray, fill={nuc2color[nuc]}] ({xloc}, 0) circle (10pt); ", file=output)
+        print(f"\\node[below=0.5cm, {nuc2color[nuc]}, very thick, scale=1.2] at ({xloc},0) {{\Huge \\bf {nuc}}};", file=output)
+        if (i+1)%gap == 0 or i==0:
+            print(f"\\node[below=0.5cm, black, scale=1.2] at ({xloc}, -1) {{\Huge  {i+1}}};", file=output)
 
     # add for bpp
     #####################################
@@ -265,61 +216,31 @@ def draw_bpp(seq, ss, tex_file, bpp_file):
             color = "red" # not in gold
             if pair_agree(a, b, ss): # in gold
                 color = "blue" 
-            lw = ",thick"
+            lw = ", thick"
             prob *= 100
             color += "!" + str(prob)
             style = "[" + color + lw + "]"
-
-            if circular: 
-                dist = b - a
-                revdist = length+lengthfix - dist
-
-                deg = 90 * (0.5-(dist+.0) / (length+lengthfix+.0))
-
-            else:
-                deg = 20 
-
-            if counter_clockwise:
-                drawarc_counterclockwise(a, b, deg, style, length, lengthfix)
-            else:
-                drawarc_clockwise(a, b, deg, style, length, lengthfix)
+            draw_eclipse(a-1, b-1, style)
+            
     else:
         pairs = get_pairs(ss)
         for pair in pairs:
             a, b = pair
-            a += 1
-            b += 1
             color = 'blue'
-            lw = ",thick"
+            lw = ", thick"
             prob = 100
             color += "!" + str(prob)
             style = "[" + color + lw + "]"
-            if circular: 
-                dist = b - a
-                revdist = length+lengthfix - dist
-
-                deg = 90 * (0.5-(dist+.0) / (length+lengthfix+.0))
-
-            else:
-                deg = 20 
-
-            if counter_clockwise:
-                drawarc_counterclockwise(a, b, deg, style, length, lengthfix)
-            else:
-                drawarc_clockwise(a, b, deg, style, length, lengthfix)
-                
+            draw_eclipse(a, b, style);
 
     print("\\end{tikzpicture}", file=output)
 
     print("\\end{document}", file=output)
     
     output.close()
-
-    # print("%d out of %d sequences have pseudoknots" % (num_hasknot, index), file=logs) #TODO
-    
-
-
-def linearpartition(seq, ss, tex_file='bpp.tex', bpp_file='bpp.txt', ):
+        
+        
+def linearpartition(seq, ss, tex_file='bpp.tex', bpp_file='bpp.txt', directory="./", delete=True):
     assert len(seq)==len(ss), f"{len(seq)} {len(ss)}"
     cmd = ['echo', seq]
     echo_process = subprocess.run(cmd, stdout=subprocess.PIPE)
@@ -332,31 +253,31 @@ def linearpartition(seq, ss, tex_file='bpp.tex', bpp_file='bpp.txt', ):
         if lp_process.returncode != 0:
             print(lp_process)
     draw_bpp(seq, ss, tex_file, bpp_file)
-    cmd = ['pdflatex', tex_file]
+    cmd = ['pdflatex', '-output-directory', directory, tex_file]
     latex_process = subprocess.run(cmd, check=True)
     if latex_process.returncode != 0:
         print(latez_process)
-    
-
-if __name__ == '__main__':
-    # seq = "AGCCGUGC"
-    # seq = "GAAAAUCGAUGCUCUUGCCGCACGCCCAUUGCUGCUCGCGCACGAUCAUGAUCUGAAAAAGUCUGUCUGGCAGCACAAUGGCGUCGGAAGAGCUCGGCAAAA"
-    # ss  = ".....((((.((((((.(((.(((((.((((.((((.((.((.((.((.((.((.....))))))))))))))))))))))))))))))))))))))....."
-    import pandas as pd
-    # df = pd.read_csv('/nfs/stak/users/zhoutian/acl/repo/RNA-Fold/data/eterna100/rna_inverse_v249_2.csv')
+    if delete:
+        if os.path.exists(bpp_file):
+            os.remove(bpp_file)
+        if os.path.exists(tex_file):
+            os.remove(tex_file)
+        
+        
+def batch_plot():
     df = pd.read_csv('/nfs/stak/users/zhoutian/acl/repo/RNA-Fold/data/eterna100/nemo_default.csv')
-    seq = df.iloc[68]['rna']
-    # ss = df.iloc[68]['structure']
-    ss = eval(df.iloc[68]['opts'])[1][1]
-    # assert len(seq)==len(ss), f"{len(seq)} {len(ss)}"
-    # cmd = ['echo', seq]
-    # echo_process = subprocess.run(cmd, stdout=subprocess.PIPE)
-    # if os.path.exists(bpp_file):
-    #     os.remove(bpp_file)
-    # cmd = ['./linearpartition', '-V', '-o', bpp_file]
-    # lp_process = subprocess.run(cmd, input=echo_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    # print(lp_process.stdout.decode('utf-8'), end="")
-    # print(lp_process.stderr.decode('utf-8'), end="")
-
-    # print(lp_process)
-    linearpartition(seq, ss, tex_file='nemo68_2.tex', bpp_file=None)
+    for i, row in df.iterrows():
+        seq = row['rna']
+        ss = row['structure']
+        linearpartition(seq, ss, tex_file=f'nemo_{i}.tex', bpp_file=f'nemo_{i}.txt', directory='flat/nemo')
+        
+    df = pd.read_csv('/nfs/stak/users/zhoutian/acl/repo/RNA-Fold/data/eterna100/df_walk_ee_r05.csv')
+    for i, row in df.iterrows():
+        seq = row['rna']
+        ss = row['structure']
+        linearpartition(seq, ss, tex_file=f'walk_05_{i}.tex', bpp_file=f'walk_05_{i}.txt', directory='flat/walk_05')
+    
+if __name__ == '__main__':
+    seq = "GAAAAUCGAUGCUCUUGCCGCACGCCCAUUGCUGCUCGCGCACGAUCAUGAUCUGAAAAAGUCUGUCUGGCAGCACAAUGGCGUCGGAAGAGCUCGGCAAAA"
+    ss  = ".....((((.((((((.(((.(((((.((((.((((.((.((.((.((.((.((.....))))))))))))))))))))))))))))))))))))))....."
+    linearpartition(seq, ss, tex_file='bpp_flat.tex', bpp_file='bpp_flat.txt')
